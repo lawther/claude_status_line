@@ -1,6 +1,8 @@
 use std::io::{self, Read};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use chrono::TimeZone as _;
+
 use serde_json::Value;
 
 const SEP: &str = "\x1b[2m │ \x1b[0m";
@@ -54,21 +56,21 @@ fn now_secs() -> Option<u64> {
         .map(|d| d.as_secs())
 }
 
-fn fmt_time_until(resets_at: u64, now: u64) -> Option<String> {
-    let remaining = resets_at.checked_sub(now)?;
-    let h = remaining / 3600;
-    let m = (remaining % 3600) / 60;
-    Some(if h > 0 {
-        format!("in {h}h {m}m")
-    } else {
-        format!("in {m}m")
-    })
+fn fmt_clock_time(unix_secs: u64) -> String {
+    let Ok(secs_i64) = i64::try_from(unix_secs) else {
+        return "--:--".to_string();
+    };
+    chrono::Local
+        .timestamp_opt(secs_i64, 0)
+        .single()
+        .map_or_else(|| "--:--".to_string(), |dt| dt.format("%H:%M").to_string())
 }
 
 // Returns a pace indicator string after 30 min of elapsed window time.
 // projected = used% / elapsed_fraction; green <90%, yellow 90-100%, red >100%.
+// use_clock_time: when true and projected >100%, shows exhaustion as HH:MM; otherwise ⏳-Xm.
 #[allow(clippy::cast_precision_loss)]
-fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, min_elapsed: u64) -> Option<String> {
+fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, min_elapsed: u64, use_clock_time: bool) -> Option<String> {
     let window_start = resets_at.checked_sub(window_secs)?;
     let elapsed = now.checked_sub(window_start)?;
 
@@ -89,7 +91,29 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, min_elaps
         ("\x1b[32m", "✓")  // green  — sustainable
     };
 
-    Some(format!("{color}{symbol} →{pct}%\x1b[0m"))
+    let early_suffix = if pct > 100 {
+        let time_to_exhaust_secs = (elapsed as f64) * 100.0 / used_pct;
+        if use_clock_time {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let exhaust_unix = window_start + time_to_exhaust_secs.round() as u64;
+            format!(" ({})", fmt_clock_time(exhaust_unix))
+        } else {
+            let secs_early = (window_secs as f64 - time_to_exhaust_secs).max(0.0);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let mins_early = (secs_early / 60.0).round() as u64;
+            let h = mins_early / 60;
+            let m = mins_early % 60;
+            if h > 0 {
+                format!(" ⏳-{h}h {m}m")
+            } else {
+                format!(" ⏳-{m}m")
+            }
+        }
+    } else {
+        String::new()
+    };
+
+    Some(format!("{color}{symbol} →{pct}%{early_suffix}\x1b[0m"))
 }
 
 fn main() {
@@ -130,10 +154,10 @@ fn main() {
     if let Some(used) = five_h_used {
         let val = pct_u32(used);
         let reset = five_h_resets_at
-            .and_then(|r| fmt_time_until(r, now))
-            .map_or(String::new(), |t| format!(" ({t})"));
+            .map(|r| format!(" ({})", fmt_clock_time(r)))
+            .unwrap_or_default();
         let pace = five_h_resets_at
-            .and_then(|r| fmt_pace(used, r, now, FIVE_HOUR_SECS, PACE_5H_MIN_ELAPSED))
+            .and_then(|r| fmt_pace(used, r, now, FIVE_HOUR_SECS, PACE_5H_MIN_ELAPSED, true))
             .map_or(String::new(), |p| format!(" {p}"));
         parts.push(format!("{}⏰ 5h:{val}%{reset}\x1b[0m{pace}", color_by_used(val)));
     }
@@ -141,7 +165,7 @@ fn main() {
     if let Some(used) = seven_d_used {
         let val = pct_u32(used);
         let pace = seven_d_resets_at
-            .and_then(|r| fmt_pace(used, r, now, SEVEN_DAY_SECS, PACE_7D_MIN_ELAPSED))
+            .and_then(|r| fmt_pace(used, r, now, SEVEN_DAY_SECS, PACE_7D_MIN_ELAPSED, false))
             .map_or(String::new(), |p| format!(" {p}"));
         parts.push(format!("{}⏰ 7d:{val}%\x1b[0m{pace}", color_by_used(val)));
     }
