@@ -90,9 +90,9 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock
     let pct = projected.round() as u32;
 
     let (color, symbol) = if pct > 100 {
-        ("\x1b[31m", "⚡")  // red  — will exceed
+        ("\x1b[31m", "🔥")  // red  — will exceed
     } else if pct >= 90 {
-        ("\x1b[33m", "⚠")  // yellow — approaching
+        ("\x1b[33m", "⚠️")  // yellow — approaching
     } else {
         ("\x1b[32m", "✓")  // green  — sustainable
     };
@@ -165,7 +165,7 @@ fn main() {
         let pace = five_h_resets_at
             .and_then(|r| fmt_pace(used, r, now, FIVE_HOUR_SECS, true))
             .map_or(String::new(), |p| format!(" {p}"));
-        parts.push(format!("{}⏰ 5h:{val}%{reset}\x1b[0m{pace}", color_by_used(val)));
+        parts.push(format!("{}5h {} {val}%{reset}\x1b[0m{pace}", color_by_used(val), mini_bar(val)));
     }
 
     if let Some(used) = seven_d_used {
@@ -173,7 +173,7 @@ fn main() {
         let pace = seven_d_resets_at
             .and_then(|r| fmt_pace(used, r, now, SEVEN_DAY_SECS, false))
             .map_or(String::new(), |p| format!(" {p}"));
-        parts.push(format!("{}⏰ 7d:{val}%\x1b[0m{pace}", color_by_used(val)));
+        parts.push(format!("{}7d {} {val}%\x1b[0m{pace}", color_by_used(val), mini_bar(val)));
     }
 
     if let Some(c) = cost {
@@ -303,14 +303,14 @@ mod tests {
     fn pace_yellow_when_projected_between_ninety_and_one_hundred_percent() {
         // 26% used at 28% elapsed → projected ≈ 94%
         let result = fmt_pace(26.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, false).unwrap();
-        assert!(result.contains('⚠'), "expected ⚠ in {result:?}");
+        assert!(result.contains("⚠️"), "expected ⚠️ in {result:?}");
     }
 
     #[test]
     fn pace_red_when_projected_over_one_hundred_percent() {
         // 30% used at 28% elapsed → projected ≈ 108%
         let result = fmt_pace(30.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, false).unwrap();
-        assert!(result.contains('⚡'), "expected ⚡ in {result:?}");
+        assert!(result.contains("🔥"), "expected 🔥 in {result:?}");
     }
 
     // --- fmt_pace: exhaustion marker when projected > 100% ---
@@ -328,7 +328,7 @@ mod tests {
         // Exact time is timezone-dependent; verify the shape "(HH:MM)" is present
         // and that the duration marker is absent.
         let result = fmt_pace(30.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, true).unwrap();
-        assert!(result.contains('⚡'), "expected ⚡ in {result:?}");
+        assert!(result.contains("🔥"), "expected 🔥 in {result:?}");
         assert!(result.contains(" (") && result.contains(')'),
             "expected parenthesised clock time in {result:?}");
         assert!(!result.contains("⏳"), "should not contain duration marker: {result:?}");
