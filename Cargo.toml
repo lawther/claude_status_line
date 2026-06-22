@@ -1,0 +1,22 @@
+[package]
+name = "claude_status_line"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "claude_status_line"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { version = "1", default-features = false, features = ["std"] }
+unicode-width = "0.2"
+
+[lints.clippy]
+all = { level = "deny", priority = -2 }
+pedantic = { level = "deny", priority = -1 }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
