@@ -18,7 +18,7 @@ fn pct_u32(f: f64) -> u32 {
 }
 
 fn color_by_used(val: u32) -> &'static str {
-    if val >= 80 {
+    if val >= 90 {
         "\x1b[31m"
     } else if val >= 50 {
         "\x1b[33m"
@@ -66,7 +66,7 @@ fn fmt_time_until(resets_at: u64, now: u64) -> Option<String> {
 }
 
 // Returns a pace indicator string after 30 min of elapsed window time.
-// projected = used% / elapsed_fraction; green <80%, yellow 80-100%, red >100%.
+// projected = used% / elapsed_fraction; green <90%, yellow 90-100%, red >100%.
 #[allow(clippy::cast_precision_loss)]
 fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, min_elapsed: u64) -> Option<String> {
     let window_start = resets_at.checked_sub(window_secs)?;
@@ -83,7 +83,7 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, min_elaps
 
     let (color, symbol) = if pct > 100 {
         ("\x1b[31m", "⚡")  // red  — will exceed
-    } else if pct >= 80 {
+    } else if pct >= 90 {
         ("\x1b[33m", "⚠")  // yellow — approaching
     } else {
         ("\x1b[32m", "✓")  // green  — sustainable
