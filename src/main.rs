@@ -31,10 +31,10 @@ fn mini_bar(percent: u32) -> String {
     let filled = ((percent as usize) * BAR_WIDTH / 100).min(BAR_WIDTH);
     let mut s = String::with_capacity(BAR_WIDTH * 3);
     for _ in 0..filled {
-        s.push('━');
+        s.push('▰');
     }
     for _ in filled..BAR_WIDTH {
-        s.push('┄');
+        s.push('▱');
     }
     s
 }
