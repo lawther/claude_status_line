@@ -2,15 +2,56 @@ use std::io::{self, Read};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::TimeZone as _;
-
 use serde_json::Value;
+use unicode_width::UnicodeWidthChar;
 
 const SEP: &str = "\x1b[2m │ \x1b[0m";
 const BAR_WIDTH: usize = 10;
 const FIVE_HOUR_SECS: u64 = 5 * 3600;
 const SEVEN_DAY_SECS: u64 = 7 * 24 * 3600;
-// Show pace once either this fraction of the window has elapsed, or this much quota is used.
 const PACE_MIN_PCT: f64 = 10.0;
+
+// Each successive level applies one additional compression on top of the previous.
+// Level 0 is the full layout; MAX is the most compact possible.
+//   1: effort "high" → "h"
+//   2: model "Sonnet 4.6" → "S 4.6"
+//   3: drop cost
+//   4: 7d bar → compact (pace stays)
+//   5: 5h bar → compact (pace stays)
+//   6: ctx bar → compact
+//   7: drop ctx size annotation
+//   8: drop model entirely
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct CompressionLevel(u8);
+
+impl CompressionLevel {
+    const MAX: Self = Self(8);
+
+    fn effort_compact(self) -> bool {
+        self.0 >= 1
+    }
+    fn model_compact(self) -> bool {
+        self.0 >= 2
+    }
+    fn show_cost(self) -> bool {
+        self.0 < 3
+    }
+    fn compact_seven_d(self) -> bool {
+        self.0 >= 4
+    }
+    fn compact_five_h(self) -> bool {
+        self.0 >= 5
+    }
+    fn compact_ctx(self) -> bool {
+        self.0 >= 6
+    }
+    fn show_ctx_size(self) -> bool {
+        self.0 < 7
+    }
+    fn show_model(self) -> bool {
+        self.0 < 8
+    }
+}
 
 // Clamp guarantees the value is in [0, 100] before the cast, making both
 // sign-loss and truncation impossible at runtime.
@@ -46,6 +87,55 @@ fn fmt_ctx_size(tokens: u64) -> String {
         format!("{}M", tokens / 1_000_000)
     } else {
         format!("{}k", tokens / 1_000)
+    }
+}
+
+// Returns the visible display width of a string, stripping ANSI CSI escape
+// sequences and summing Unicode column widths of the remaining characters.
+fn visible_len(s: &str) -> usize {
+    let mut width = 0usize;
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            // Skip CSI sequence: ESC [ <params> <final-byte>
+            if chars.next_if_eq(&'[').is_some() {
+                for inner in chars.by_ref() {
+                    if inner.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            width += c.width().unwrap_or(0);
+        }
+    }
+    width
+}
+
+fn terminal_columns() -> usize {
+    std::env::var("COLUMNS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(usize::MAX)
+}
+
+// Abbreviates the first word of the model name to its initial: "Sonnet 4.6" → "S 4.6".
+fn compact_model_name(model: &str) -> String {
+    model.find(' ').map_or_else(
+        || model.to_string(),
+        |pos| {
+            let initial = model.chars().next().unwrap_or('?');
+            format!("{initial}{}", &model[pos..])
+        },
+    )
+}
+
+// In compact mode: "label:val%". In full mode: "label ▰▱▱ val%".
+fn fmt_metric(label: &str, val: u32, compact: bool) -> String {
+    if compact {
+        format!("{label}:{val}%")
+    } else {
+        format!("{label} {} {val}%", mini_bar(val))
     }
 }
 
@@ -122,67 +212,134 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock
     Some(format!("{color}{symbol} →{pct}%{early_suffix}\x1b[0m"))
 }
 
+struct StatusData {
+    model: String,
+    effort: Option<String>,
+    ctx_used: Option<f64>,
+    ctx_size: Option<u64>,
+    five_h_used: Option<f64>,
+    five_h_resets_at: Option<u64>,
+    seven_d_used: Option<f64>,
+    seven_d_resets_at: Option<u64>,
+    cost: Option<f64>,
+}
+
+impl StatusData {
+    fn from_json(v: &Value) -> Self {
+        Self {
+            model: v["model"]["display_name"].as_str().unwrap_or("").to_string(),
+            effort: v["effort"]["level"].as_str().map(str::to_string),
+            ctx_used: v["context_window"]["used_percentage"].as_f64(),
+            ctx_size: v["context_window"]["context_window_size"].as_u64(),
+            five_h_used: v["rate_limits"]["five_hour"]["used_percentage"].as_f64(),
+            five_h_resets_at: v["rate_limits"]["five_hour"]["resets_at"].as_u64(),
+            seven_d_used: v["rate_limits"]["seven_day"]["used_percentage"].as_f64(),
+            seven_d_resets_at: v["rate_limits"]["seven_day"]["resets_at"].as_u64(),
+            cost: v["cost"]["total_cost_usd"].as_f64(),
+        }
+    }
+}
+
+fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    if level.show_model() && !data.model.is_empty() {
+        let model_str = if level.model_compact() {
+            compact_model_name(&data.model)
+        } else {
+            data.model.clone()
+        };
+        let label = match &data.effort {
+            Some(lvl) => {
+                let lvl_display = if level.effort_compact() {
+                    lvl.get(..1).unwrap_or(lvl.as_str())
+                } else {
+                    lvl.as_str()
+                };
+                format!("{model_str} ({lvl_display})")
+            }
+            None => model_str,
+        };
+        parts.push(format!("\x1b[1;35m{label}\x1b[0m"));
+    }
+
+    if let Some(ctx) = data.ctx_used {
+        let val = pct_u32(ctx);
+        let size = if level.show_ctx_size() {
+            data.ctx_size
+                .map_or(String::new(), |n| format!(" ({})", fmt_ctx_size(n)))
+        } else {
+            String::new()
+        };
+        parts.push(format!(
+            "{}{}{size}\x1b[0m",
+            color_by_used(val),
+            fmt_metric("ctx", val, level.compact_ctx()),
+        ));
+    }
+
+    if let Some(used) = data.five_h_used {
+        let val = pct_u32(used);
+        let reset = data
+            .five_h_resets_at
+            .map(|r| format!(" ({})", fmt_clock_time(r)))
+            .unwrap_or_default();
+        let pace = data
+            .five_h_resets_at
+            .and_then(|r| fmt_pace(used, r, now, FIVE_HOUR_SECS, true))
+            .map_or(String::new(), |p| format!(" {p}"));
+        parts.push(format!(
+            "{}{}{reset}\x1b[0m{pace}",
+            color_by_used(val),
+            fmt_metric("5h", val, level.compact_five_h()),
+        ));
+    }
+
+    if let Some(used) = data.seven_d_used {
+        let val = pct_u32(used);
+        let pace = data
+            .seven_d_resets_at
+            .and_then(|r| fmt_pace(used, r, now, SEVEN_DAY_SECS, false))
+            .map_or(String::new(), |p| format!(" {p}"));
+        parts.push(format!(
+            "{}{}\x1b[0m{pace}",
+            color_by_used(val),
+            fmt_metric("7d", val, level.compact_seven_d()),
+        ));
+    }
+
+    if level.show_cost() {
+        if let Some(c) = data.cost {
+            if c > 0.0 {
+                parts.push(format!("\x1b[2m$ {c:.2}\x1b[0m"));
+            }
+        }
+    }
+
+    parts.join(SEP)
+}
+
 fn main() {
     let mut input = String::new();
     let _ = io::stdin().read_to_string(&mut input);
 
     let v: Value = serde_json::from_str(&input).unwrap_or(Value::Null);
-
-    let model = v["model"]["display_name"].as_str().unwrap_or("");
-    let effort = v["effort"]["level"].as_str();
-    let ctx_used = v["context_window"]["used_percentage"].as_f64();
-    let ctx_size = v["context_window"]["context_window_size"].as_u64();
-    let five_h_used = v["rate_limits"]["five_hour"]["used_percentage"].as_f64();
-    let five_h_resets_at = v["rate_limits"]["five_hour"]["resets_at"].as_u64();
-    let seven_d_used = v["rate_limits"]["seven_day"]["used_percentage"].as_f64();
-    let seven_d_resets_at = v["rate_limits"]["seven_day"]["resets_at"].as_u64();
-    let cost = v["cost"]["total_cost_usd"].as_f64();
-
+    let data = StatusData::from_json(&v);
     let now = now_secs().unwrap_or(0);
-    let mut parts: Vec<String> = Vec::new();
+    let cols = terminal_columns();
 
-    if !model.is_empty() {
-        let label = effort
-            .map_or_else(|| model.to_string(), |lvl| format!("{model} ({lvl})"));
-        parts.push(format!("\x1b[1;35m{label}\x1b[0m"));
-    }
-
-    if let Some(ctx) = ctx_used {
-        let val = pct_u32(ctx);
-        let size = ctx_size.map_or(String::new(), |n| format!(" ({})", fmt_ctx_size(n)));
-        parts.push(format!(
-            "{}ctx {} {val}%{size}\x1b[0m",
-            color_by_used(val),
-            mini_bar(val),
-        ));
-    }
-
-    if let Some(used) = five_h_used {
-        let val = pct_u32(used);
-        let reset = five_h_resets_at
-            .map(|r| format!(" ({})", fmt_clock_time(r)))
-            .unwrap_or_default();
-        let pace = five_h_resets_at
-            .and_then(|r| fmt_pace(used, r, now, FIVE_HOUR_SECS, true))
-            .map_or(String::new(), |p| format!(" {p}"));
-        parts.push(format!("{}5h {} {val}%{reset}\x1b[0m{pace}", color_by_used(val), mini_bar(val)));
-    }
-
-    if let Some(used) = seven_d_used {
-        let val = pct_u32(used);
-        let pace = seven_d_resets_at
-            .and_then(|r| fmt_pace(used, r, now, SEVEN_DAY_SECS, false))
-            .map_or(String::new(), |p| format!(" {p}"));
-        parts.push(format!("{}7d {} {val}%\x1b[0m{pace}", color_by_used(val), mini_bar(val)));
-    }
-
-    if let Some(c) = cost {
-        if c > 0.0 {
-            parts.push(format!("\x1b[2m$ {c:.2}\x1b[0m"));
-        }
-    }
-
-    print!("{}", parts.join(SEP));
+    let output = (0..=CompressionLevel::MAX.0)
+        .find_map(|n| {
+            let level = CompressionLevel(n);
+            let s = build_output(&data, level, now);
+            if visible_len(&s) <= cols || level == CompressionLevel::MAX {
+                Some(s)
+            } else {
+                None
+            }
+        })
+        .expect("loop always returns Some at MAX level");
+    print!("{output}");
 }
 
 #[cfg(test)]
@@ -248,6 +405,79 @@ mod tests {
     #[test]
     fn bar_is_half_filled_at_fifty_percent() {
         assert_eq!(mini_bar(50), "▰▰▰▰▰▱▱▱▱▱");
+    }
+
+    // --- visible_len ---
+
+    #[test]
+    fn visible_len_counts_plain_ascii() {
+        assert_eq!(visible_len("hello"), 5);
+    }
+
+    #[test]
+    fn visible_len_strips_ansi_escape_sequences() {
+        assert_eq!(visible_len("\x1b[31mhello\x1b[0m"), 5);
+    }
+
+    #[test]
+    fn visible_len_counts_wide_emoji_as_two_columns() {
+        assert_eq!(visible_len("🔥"), 2);
+        assert_eq!(visible_len("⏳"), 2);
+    }
+
+    #[test]
+    fn visible_len_counts_sep_as_three_columns() {
+        assert_eq!(visible_len(SEP), 3);
+    }
+
+    #[test]
+    fn visible_len_handles_mixed_ansi_and_wide_chars() {
+        // "\x1b[31m🔥\x1b[0m" → stripped = "🔥" → width 2
+        assert_eq!(visible_len("\x1b[31m🔥\x1b[0m"), 2);
+    }
+
+    // --- CompressionLevel ---
+
+    #[test]
+    fn compression_level_zero_is_full_layout() {
+        let l = CompressionLevel(0);
+        assert!(!l.effort_compact());
+        assert!(!l.model_compact());
+        assert!(l.show_cost());
+        assert!(!l.compact_seven_d());
+        assert!(!l.compact_five_h());
+        assert!(!l.compact_ctx());
+        assert!(l.show_ctx_size());
+        assert!(l.show_model());
+    }
+
+    #[test]
+    fn compression_level_max_enables_all_compressions() {
+        let l = CompressionLevel::MAX;
+        assert!(l.effort_compact());
+        assert!(l.model_compact());
+        assert!(!l.show_cost());
+        assert!(l.compact_seven_d());
+        assert!(l.compact_five_h());
+        assert!(l.compact_ctx());
+        assert!(!l.show_ctx_size());
+        assert!(!l.show_model());
+    }
+
+    #[test]
+    fn compression_level_transitions_apply_one_step_at_a_time() {
+        // level 3 drops cost but bars are still full
+        let l3 = CompressionLevel(3);
+        assert!(!l3.show_cost());
+        assert!(!l3.compact_seven_d());
+        // level 4 compacts 7d only
+        let l4 = CompressionLevel(4);
+        assert!(l4.compact_seven_d());
+        assert!(!l4.compact_five_h());
+        // level 7 drops ctx size but model still present
+        let l7 = CompressionLevel(7);
+        assert!(!l7.show_ctx_size());
+        assert!(l7.show_model());
     }
 
     // --- fmt_pace: threshold triggering ---
