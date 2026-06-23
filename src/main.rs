@@ -6,50 +6,60 @@ use serde_json::Value;
 use unicode_width::UnicodeWidthChar;
 
 const SEP: &str = "\x1b[2m │ \x1b[0m";
-const BAR_WIDTH: usize = 10;
 const FIVE_HOUR_SECS: u64 = 5 * 3600;
 const SEVEN_DAY_SECS: u64 = 7 * 24 * 3600;
 const PACE_MIN_PCT: f64 = 10.0;
 
 // Each successive level applies one additional compression on top of the previous.
 // Level 0 is the full layout; MAX is the most compact possible.
-//   1: effort "high" → "h"
-//   2: model "Sonnet 4.6" → "S 4.6"
-//   3: drop cost
-//   4: 7d bar → compact (pace stays)
-//   5: 5h bar → compact (pace stays)
-//   6: ctx bar → compact
-//   7: drop ctx size annotation
-//   8: drop model entirely
+//   1-5:  bars 15 → 10 (one cell per step)
+//   6:    effort "high" → "h"
+//   7:    model "Sonnet 4.6" → "S 4.6"
+//   8-12: bars 9 → 5 (one cell per step)
+//   13:   drop cost
+//   14:   7d bar → compact display (pace stays)
+//   15:   5h bar → compact display (pace stays)
+//   16:   ctx bar → compact display
+//   17:   drop ctx size annotation
+//   18:   drop model entirely
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct CompressionLevel(u8);
 
 impl CompressionLevel {
-    const MAX: Self = Self(8);
+    const MAX: Self = Self(18);
 
+    fn bar_width(self) -> usize {
+        let n = usize::from(self.0);
+        match self.0 {
+            0..=5 => 15 - n,  // 15 down to 10
+            6..=7 => 10,       // effort/model steps — bar stays at 10
+            8..=12 => 17 - n, // 9 down to 5
+            _ => 5,
+        }
+    }
     fn effort_compact(self) -> bool {
-        self.0 >= 1
-    }
-    fn model_compact(self) -> bool {
-        self.0 >= 2
-    }
-    fn show_cost(self) -> bool {
-        self.0 < 3
-    }
-    fn compact_seven_d(self) -> bool {
-        self.0 >= 4
-    }
-    fn compact_five_h(self) -> bool {
-        self.0 >= 5
-    }
-    fn compact_ctx(self) -> bool {
         self.0 >= 6
     }
+    fn model_compact(self) -> bool {
+        self.0 >= 7
+    }
+    fn show_cost(self) -> bool {
+        self.0 < 13
+    }
+    fn compact_seven_d(self) -> bool {
+        self.0 >= 14
+    }
+    fn compact_five_h(self) -> bool {
+        self.0 >= 15
+    }
+    fn compact_ctx(self) -> bool {
+        self.0 >= 16
+    }
     fn show_ctx_size(self) -> bool {
-        self.0 < 7
+        self.0 < 17
     }
     fn show_model(self) -> bool {
-        self.0 < 8
+        self.0 < 18
     }
 }
 
@@ -70,13 +80,13 @@ fn color_by_used(val: u32) -> &'static str {
     }
 }
 
-fn mini_bar(percent: u32) -> String {
-    let filled = ((percent as usize) * BAR_WIDTH / 100).min(BAR_WIDTH);
-    let mut s = String::with_capacity(BAR_WIDTH * 3);
+fn mini_bar(percent: u32, width: usize) -> String {
+    let filled = ((percent as usize) * width / 100).min(width);
+    let mut s = String::with_capacity(width * 3);
     for _ in 0..filled {
         s.push('▰');
     }
-    for _ in filled..BAR_WIDTH {
+    for _ in filled..width {
         s.push('▱');
     }
     s
@@ -131,11 +141,11 @@ fn compact_model_name(model: &str) -> String {
 }
 
 // In compact mode: "label:val%". In full mode: "label ▰▱▱ val%".
-fn fmt_metric(label: &str, val: u32, compact: bool) -> String {
+fn fmt_metric(label: &str, val: u32, compact: bool, bar_width: usize) -> String {
     if compact {
         format!("{label}:{val}%")
     } else {
-        format!("{label} {} {val}%", mini_bar(val))
+        format!("{label} {} {val}%", mini_bar(val, bar_width))
     }
 }
 
@@ -242,6 +252,7 @@ impl StatusData {
 
 fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String {
     let mut parts: Vec<String> = Vec::new();
+    let bar_width = level.bar_width();
 
     if level.show_model() && !data.model.is_empty() {
         let model_str = if level.model_compact() {
@@ -274,7 +285,7 @@ fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String 
         parts.push(format!(
             "{}{}{size}\x1b[0m",
             color_by_used(val),
-            fmt_metric("ctx", val, level.compact_ctx()),
+            fmt_metric("ctx", val, level.compact_ctx(), bar_width),
         ));
     }
 
@@ -291,7 +302,7 @@ fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String 
         parts.push(format!(
             "{}{}{reset}\x1b[0m{pace}",
             color_by_used(val),
-            fmt_metric("5h", val, level.compact_five_h()),
+            fmt_metric("5h", val, level.compact_five_h(), bar_width),
         ));
     }
 
@@ -304,7 +315,7 @@ fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String 
         parts.push(format!(
             "{}{}\x1b[0m{pace}",
             color_by_used(val),
-            fmt_metric("7d", val, level.compact_seven_d()),
+            fmt_metric("7d", val, level.compact_seven_d(), bar_width),
         ));
     }
 
@@ -394,17 +405,24 @@ mod tests {
 
     #[test]
     fn bar_is_all_empty_at_zero_percent() {
-        assert_eq!(mini_bar(0), "▱▱▱▱▱▱▱▱▱▱");
+        assert_eq!(mini_bar(0, 10), "▱▱▱▱▱▱▱▱▱▱");
     }
 
     #[test]
     fn bar_is_all_filled_at_one_hundred_percent() {
-        assert_eq!(mini_bar(100), "▰▰▰▰▰▰▰▰▰▰");
+        assert_eq!(mini_bar(100, 10), "▰▰▰▰▰▰▰▰▰▰");
     }
 
     #[test]
     fn bar_is_half_filled_at_fifty_percent() {
-        assert_eq!(mini_bar(50), "▰▰▰▰▰▱▱▱▱▱");
+        assert_eq!(mini_bar(50, 10), "▰▰▰▰▰▱▱▱▱▱");
+    }
+
+    #[test]
+    fn bar_respects_custom_width() {
+        assert_eq!(mini_bar(100, 15), "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰");
+        assert_eq!(mini_bar(0, 5), "▱▱▱▱▱");
+        assert_eq!(mini_bar(50, 6), "▰▰▰▱▱▱");
     }
 
     // --- visible_len ---
@@ -441,6 +459,7 @@ mod tests {
     #[test]
     fn compression_level_zero_is_full_layout() {
         let l = CompressionLevel(0);
+        assert_eq!(l.bar_width(), 15);
         assert!(!l.effort_compact());
         assert!(!l.model_compact());
         assert!(l.show_cost());
@@ -454,6 +473,7 @@ mod tests {
     #[test]
     fn compression_level_max_enables_all_compressions() {
         let l = CompressionLevel::MAX;
+        assert_eq!(l.bar_width(), 5);
         assert!(l.effort_compact());
         assert!(l.model_compact());
         assert!(!l.show_cost());
@@ -465,19 +485,36 @@ mod tests {
     }
 
     #[test]
+    fn compression_level_bar_width_decreases_through_levels() {
+        assert_eq!(CompressionLevel(0).bar_width(), 15);
+        assert_eq!(CompressionLevel(5).bar_width(), 10);
+        assert_eq!(CompressionLevel(6).bar_width(), 10); // effort step, bar unchanged
+        assert_eq!(CompressionLevel(7).bar_width(), 10); // model step, bar unchanged
+        assert_eq!(CompressionLevel(8).bar_width(), 9);
+        assert_eq!(CompressionLevel(12).bar_width(), 5);
+        assert_eq!(CompressionLevel(18).bar_width(), 5);
+    }
+
+    #[test]
     fn compression_level_transitions_apply_one_step_at_a_time() {
-        // level 3 drops cost but bars are still full
-        let l3 = CompressionLevel(3);
-        assert!(!l3.show_cost());
-        assert!(!l3.compact_seven_d());
-        // level 4 compacts 7d only
-        let l4 = CompressionLevel(4);
-        assert!(l4.compact_seven_d());
-        assert!(!l4.compact_five_h());
-        // level 7 drops ctx size but model still present
-        let l7 = CompressionLevel(7);
-        assert!(!l7.show_ctx_size());
-        assert!(l7.show_model());
+        // level 12 has 5-wide bars but still shows cost
+        let l12 = CompressionLevel(12);
+        assert_eq!(l12.bar_width(), 5);
+        assert!(l12.show_cost());
+        assert!(!l12.compact_seven_d());
+        // level 13 drops cost, bars stay at 5
+        let l13 = CompressionLevel(13);
+        assert!(!l13.show_cost());
+        assert!(l13.show_model());
+        assert!(!l13.compact_seven_d());
+        // level 14 compacts 7d only
+        let l14 = CompressionLevel(14);
+        assert!(l14.compact_seven_d());
+        assert!(!l14.compact_five_h());
+        // level 17 drops ctx size but model still present
+        let l17 = CompressionLevel(17);
+        assert!(!l17.show_ctx_size());
+        assert!(l17.show_model());
     }
 
     // --- fmt_pace: threshold triggering ---
