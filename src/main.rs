@@ -115,6 +115,10 @@ fn visible_len(s: &str) -> usize {
                     }
                 }
             }
+        } else if c == '\u{FE0F}' {
+            // Emoji presentation selector forces the preceding glyph to render
+            // as a 2-wide emoji; add 1 here since the base char is already counted as 1.
+            width += 1;
         } else {
             width += c.width().unwrap_or(0);
         }
@@ -441,6 +445,8 @@ mod tests {
     fn visible_len_counts_wide_emoji_as_two_columns() {
         assert_eq!(visible_len("🔥"), 2);
         assert_eq!(visible_len("⏳"), 2);
+        // ⚠️ is U+26A0 (width 1) + U+FE0F (emoji selector, adds 1) = 2
+        assert_eq!(visible_len("⚠️"), 2);
     }
 
     #[test]
