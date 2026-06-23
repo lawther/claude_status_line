@@ -127,10 +127,13 @@ fn visible_len(s: &str) -> usize {
 }
 
 fn terminal_columns() -> usize {
-    std::env::var("COLUMNS")
+    let cols = std::env::var("COLUMNS")
         .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(usize::MAX)
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(usize::MAX);
+    // Claude Code prepends 4 spaces of padding before the statusline content;
+    // subtract them so we target the actual available content width.
+    cols.saturating_sub(4)
 }
 
 // Abbreviates the first word of the model name to its initial: "Sonnet 4.6" → "S 4.6".
@@ -198,7 +201,7 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock
     } else if pct >= 90 {
         ("\x1b[33m", "⚠️")  // yellow — approaching
     } else {
-        ("\x1b[32m", "✓")  // green  — sustainable
+        ("\x1b[32m", "+")   // green  — sustainable
     };
 
     let early_suffix = if pct > 100 {
@@ -223,7 +226,7 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock
         String::new()
     };
 
-    Some(format!("{color}{symbol} →{pct}%{early_suffix}\x1b[0m"))
+    Some(format!("{color}{symbol} >{pct}%{early_suffix}\x1b[0m"))
 }
 
 struct StatusData {
@@ -569,7 +572,7 @@ mod tests {
     fn pace_green_when_projected_under_ninety_percent() {
         // 20% used at 28% elapsed → projected ≈ 72%
         let result = fmt_pace(20.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, false).unwrap();
-        assert!(result.contains('✓'), "expected ✓ in {result:?}");
+        assert!(result.contains('+'), "expected + in {result:?}");
     }
 
     #[test]
