@@ -59,8 +59,9 @@ If the `CLAUDE_CONFIG_DIR` environment variable is set, `--install` uses that di
 ## Development
 
 ```sh
-just lint        # clippy
-just build       # debug build
-just test        # run tests   
+just setup-git-hooks    # install precommit hook
+just lint               # fmt + clippy
+just build              # debug build
+just test               # run tests   
 just build-release
 ```
