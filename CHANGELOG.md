@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.0...claude_status_line-v0.2.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* trigger release-please PR ([dcb6f97](https://github.com/lawther/claude_status_line/commit/dcb6f97b4327ddc6817ae8a4fecf83e33cc52b84))
+
 ## [0.2.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.1.0...claude_status_line-v0.2.0) (2026-06-30)
 
 
