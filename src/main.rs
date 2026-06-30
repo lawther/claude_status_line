@@ -34,7 +34,7 @@ impl CompressionLevel {
         let n = usize::from(self.0);
         match self.0 {
             0..=5 => 15 - n,  // 15 down to 10
-            6..=7 => 10,       // effort/model steps — bar stays at 10
+            6..=7 => 10,      // effort/model steps — bar stays at 10
             8..=12 => 17 - n, // 9 down to 5
             _ => 5,
         }
@@ -180,7 +180,13 @@ fn fmt_clock_time(unix_secs: u64) -> String {
 // of the quota has been used, whichever comes first. Green <90%, yellow 90-100%, red >100%.
 // use_clock_time: when true and projected >100%, shows exhaustion as HH:MM; otherwise ⏳-Xm.
 #[allow(clippy::cast_precision_loss)]
-fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock_time: bool) -> Option<String> {
+fn fmt_pace(
+    used_pct: f64,
+    resets_at: u64,
+    now: u64,
+    window_secs: u64,
+    use_clock_time: bool,
+) -> Option<String> {
     let window_start = resets_at.checked_sub(window_secs)?;
     let elapsed = now.checked_sub(window_start)?;
 
@@ -200,11 +206,11 @@ fn fmt_pace(used_pct: f64, resets_at: u64, now: u64, window_secs: u64, use_clock
     let pct = projected.round() as u32;
 
     let (color, symbol) = if pct > 100 {
-        ("\x1b[31m", "🔥")  // red  — will exceed
+        ("\x1b[31m", "🔥") // red  — will exceed
     } else if pct >= 90 {
-        ("\x1b[33m", "⚠️")  // yellow — approaching
+        ("\x1b[33m", "⚠️") // yellow — approaching
     } else {
-        ("\x1b[32m", "✓")  // green  — sustainable
+        ("\x1b[32m", "✓") // green  — sustainable
     };
 
     let early_suffix = if pct > 100 {
@@ -247,7 +253,10 @@ struct StatusData {
 impl StatusData {
     fn from_json(v: &Value) -> Self {
         Self {
-            model: v["model"]["display_name"].as_str().unwrap_or("").to_string(),
+            model: v["model"]["display_name"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
             effort: v["effort"]["level"].as_str().map(str::to_string),
             ctx_used: v["context_window"]["used_percentage"].as_f64(),
             ctx_size: v["context_window"]["context_window_size"].as_u64(),
@@ -637,9 +646,14 @@ mod tests {
         // and that the duration marker is absent.
         let result = fmt_pace(30.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, true).unwrap();
         assert!(result.contains("🔥"), "expected 🔥 in {result:?}");
-        assert!(result.contains(" (") && result.contains(')'),
-            "expected parenthesised clock time in {result:?}");
-        assert!(!result.contains("⏳"), "should not contain duration marker: {result:?}");
+        assert!(
+            result.contains(" (") && result.contains(')'),
+            "expected parenthesised clock time in {result:?}"
+        );
+        assert!(
+            !result.contains("⏳"),
+            "should not contain duration marker: {result:?}"
+        );
     }
 
     #[test]
@@ -647,6 +661,9 @@ mod tests {
         // 60% used at 5000s → projected ≈ 216%; time_to_exhaust = 5000*100/60 ≈ 8333s
         // secs_early = 18000 - 8333 ≈ 9667s ≈ 161m → 2h 41m
         let result = fmt_pace(60.0, ANCHOR_5H, 5000, FIVE_HOUR_SECS, false).unwrap();
-        assert!(result.contains("⏳-2h 41m"), "expected ⏳-2h 41m in {result:?}");
+        assert!(
+            result.contains("⏳-2h 41m"),
+            "expected ⏳-2h 41m in {result:?}"
+        );
     }
 }
