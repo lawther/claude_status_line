@@ -77,7 +77,7 @@ jobs:
       - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }}
+        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }} --repo "${{ github.repository }}"
 
   # Best-effort: macos-13 (x86_64) runners are slow to queue on the free tier.
   # continue-on-error means this job does not block publish-release — the binary
@@ -115,7 +115,7 @@ jobs:
       - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }}
+        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }} --repo "${{ github.repository }}"
 
   publish-release:
     needs: [release-please, build]
@@ -127,4 +127,4 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false
+        run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false --repo "${{ github.repository }}"
