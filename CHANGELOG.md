@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.1...claude_status_line-v0.2.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* add checkout step required by release-please-action@v5 ([e7955d8](https://github.com/lawther/claude_status_line/commit/e7955d87104c977dda8f8fb9dbff810bd9138f3f))
+
 ## [0.2.1](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.0...claude_status_line-v0.2.1) (2026-06-30)
 
 
