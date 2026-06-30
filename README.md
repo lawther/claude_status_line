@@ -22,6 +22,8 @@ Here we see usage has accelerated, and you will burn through the 5h quota by 19:
 
 <img src="screenshots/screenshot2.png" alt="screenshot 2" width="1024">
 
+Note also that the pace indidators only show once either 10% of the quota is used, or 10% of the time window has elapsed.
+
 ## Requirements
 
 - [Rust](https://rustup.rs) (stable)
@@ -57,7 +59,8 @@ If the `CLAUDE_CONFIG_DIR` environment variable is set, `--install` uses that di
 ## Development
 
 ```sh
-just check       # clippy + tests
-just build-dev   # debug build
+just lint        # clippy
+just build       # debug build
+just test        # run tests   
 just build-release
 ```
