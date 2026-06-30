@@ -1,16 +1,13 @@
-install:
-    #!/bin/sh
-    set -e
+bin_ext := if os() == "windows" { ".exe" } else { "" }
+
+build-dev:
+    cargo build
+
+build-release:
     cargo build --release
-    install -m 755 target/release/claude_status_line ~/.claude/statusline
-    settings="$HOME/.claude/settings.json"
-    sl='{"type":"command","command":"~/.claude/statusline","padding":2}'
-    if [ -f "$settings" ]; then
-        tmp=$(mktemp)
-        jq --argjson sl "$sl" '. + {statusLine: $sl}' "$settings" > "$tmp" && mv "$tmp" "$settings"
-    else
-        jq -n --argjson sl "$sl" '{statusLine: $sl}' > "$settings"
-    fi
+
+install: build-release
+    target/release/claude_status_line{{bin_ext}} --install
 
 check:
     cargo clippy -- -D warnings
