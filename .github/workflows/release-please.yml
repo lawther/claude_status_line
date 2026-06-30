@@ -30,8 +30,6 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-          - os: macos-13
-            target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
           - os: windows-latest
@@ -73,6 +71,44 @@ jobs:
           $archive = "claude_status_line-${{ needs.release-please.outputs.tag_name }}-${{ matrix.target }}.zip"
           Compress-Archive -Path "target/${{ matrix.target }}/release/claude_status_line.exe" -DestinationPath $archive
           echo "ARCHIVE=$archive" >> $env:GITHUB_ENV
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }}
+
+  # Best-effort: macos-13 (x86_64) runners are slow to queue on the free tier.
+  # continue-on-error means this job does not block publish-release — the binary
+  # is uploaded to the release if/when the runner picks it up, but a slow or
+  # failed run does not delay the release going live.
+  build-macos-x86:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    continue-on-error: true
+    runs-on: macos-13
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Package
+        run: |
+          archive="claude_status_line-${{ needs.release-please.outputs.tag_name }}-x86_64-apple-darwin.tar.gz"
+          tar czf "$archive" -C target/x86_64-apple-darwin/release claude_status_line
+          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
 
       - name: Upload to release
         env:
