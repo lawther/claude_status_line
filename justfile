@@ -29,6 +29,8 @@ test:
 setup-git-hooks:
     git config core.hooksPath .githooks
     chmod +x .githooks/pre-commit
+    git config merge.ff only
+    git config pull.rebase true
     @echo "{{success}}Git hooks configured{{reset}}"
 
 precommit:
