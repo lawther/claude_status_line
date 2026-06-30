@@ -14,11 +14,11 @@ The output compresses automatically to fit any terminal width, shrinking bars an
 
 ## Examples
 
-This shows most of the features. In this example you are on pace to use 46% of the weekly quota. 
+In this example, you've used 24% of your current 200k token context window, 9% of your 5h quota, and are on pace to use 46% of the weekly quota. The 5h quota will refresh at 20:30.
 
 <img src="screenshots/screenshot1.png" alt="screenshot 1" width="1024">
 
-Here we see usage has accelerated, and you will burn through the 5h quota by 19:40. Notice the progress bars have compressed, and the model name has shrunk from 'Sonnet 4.6' to 'S 4.6'.
+Here we see your usage has accelerated. The '120%' is the burn rate - in this case you are 20% 'too fast', meaning you will run out of the 5h quota by 19:40. Notice the progress bars have compressed, and the model name has shrunk from 'Sonnet 4.6' to 'S 4.6' to account for the new 5h pace indicator.
 
 <img src="screenshots/screenshot2.png" alt="screenshot 2" width="1024">
 
