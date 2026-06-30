@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.2...claude_status_line-v0.2.3) (2026-06-30)
+
+
+### Bug Fixes
+
+* pass --repo to gh commands so no checkout is needed ([dd94f09](https://github.com/lawther/claude_status_line/commit/dd94f094a7da7bde2cf60a50136be4f45a69dd41))
+
 ## [0.2.2](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.1...claude_status_line-v0.2.2) (2026-06-30)
 
 
