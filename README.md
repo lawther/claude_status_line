@@ -26,16 +26,25 @@ Note also that the pace indidators only show once either 10% of the quota is use
 
 ## Requirements
 
-- [Rust](https://rustup.rs) (stable)
+- [Claude Code](https://claude.ai/code) (required, duh)
+- [Rust](https://rustup.rs) (to compile from source)
 - [just](https://github.com/casey/just) (optional, for the convenience recipes)
 
 ## Installation
+
+Download a pre-compiled release for your platform from [here](https://github.com/lawther/claude_status_line/releases), and
+
+```sh
+claude_status_line --install
+```
+
+Or, build from source:
 
 ```sh
 just install
 ```
 
-Or without `just`:
+Or, without `just`:
 
 ```sh
 cargo build --release
