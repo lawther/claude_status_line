@@ -26,6 +26,11 @@ lint:
 test:
     cargo test
 
+setup-git-hooks:
+    git config core.hooksPath .githooks
+    chmod +x .githooks/pre-commit
+    @echo "{{success}}Git hooks configured{{reset}}"
+
 precommit:
     #!/usr/bin/env bash
     set -euo pipefail
