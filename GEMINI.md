@@ -41,7 +41,7 @@
 
 ## Naming
 
-- **Australian English.** `colour`, `behaviour`, `serialise`, `cancelled`. Applies to variables, comments, commit messages, and doc strings. Quote stdlib identifiers exactly when calling them (`serialize`, `color`) but spell our own in AusE.
+- **Australian English.** `colour`, `behaviour`, `serialise`, `cancelled`. Applies to variables, comments, commit messages, and doc strings. Quote stdlib identifiers exactly when calling them (`serialize`, `color`) but spell our own in Australian English.
 - **`snake_case` for items, `UpperCamelCase` for types, `SCREAMING_SNAKE_CASE` for consts.** Clippy enforces.
 - **No abbreviations.** `reset_time`, not `rst`. Internal locals may abbreviate when obvious within a few lines.
 
