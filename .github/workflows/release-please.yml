@@ -32,6 +32,8 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
           - os: windows-latest
@@ -79,44 +81,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }} --repo "${{ github.repository }}"
 
-  # Best-effort: macos-13 (x86_64) runners are slow to queue on the free tier.
-  # continue-on-error means this job does not block publish-release — the binary
-  # is uploaded to the release if/when the runner picks it up, but a slow or
-  # failed run does not delay the release going live.
-  build-macos-x86:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
-    continue-on-error: true
-    runs-on: macos-13
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-
-      - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build
-        run: cargo build --release --target x86_64-apple-darwin
-
-      - name: Package
-        run: |
-          archive="claude_status_line-${{ needs.release-please.outputs.tag_name }}-x86_64-apple-darwin.tar.gz"
-          tar czf "$archive" -C target/x86_64-apple-darwin/release claude_status_line
-          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
-
-      - name: Upload to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.ARCHIVE }} --repo "${{ github.repository }}"
-
   publish-release:
     needs: [release-please, build]
     if: ${{ needs.release-please.outputs.release_created }}
@@ -128,3 +92,75 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false --repo "${{ github.repository }}"
+
+  bump-formula:
+    needs: [release-please, publish-release]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calculate Checksums
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          VERSION="${TAG#v}"
+          
+          # Download assets
+          curl -sL -O "https://github.com/${{ github.repository }}/releases/download/${TAG}/claude_status_line-${TAG}-aarch64-apple-darwin.tar.gz"
+          curl -sL -O "https://github.com/${{ github.repository }}/releases/download/${TAG}/claude_status_line-${TAG}-x86_64-apple-darwin.tar.gz"
+          
+          ARM_SHA=$(sha256sum "claude_status_line-${TAG}-aarch64-apple-darwin.tar.gz" | awk '{print $1}')
+          INTEL_SHA=$(sha256sum "claude_status_line-${TAG}-x86_64-apple-darwin.tar.gz" | awk '{print $1}')
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "ARM_SHA=$ARM_SHA" >> $GITHUB_ENV
+          echo "INTEL_SHA=$INTEL_SHA" >> $GITHUB_ENV
+
+      - name: Push to Homebrew Tap
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Clone the tap repo
+          git clone "https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/lawther/homebrew-tap.git" homebrew-tap
+          cd homebrew-tap
+          mkdir -p Formula
+          
+          # Create formula
+          cat <<EOF > Formula/claude_status_line.rb
+          class ClaudeStatusLine < Formula
+            desc "Status line renderer for Claude Code"
+            homepage "https://github.com/lawther/claude_status_line"
+            version "${{ env.VERSION }}"
+
+            if OS.mac?
+              if Hardware::CPU.intel?
+                url "https://github.com/lawther/claude_status_line/releases/download/v#{version}/claude_status_line-v#{version}-x86_64-apple-darwin.tar.gz"
+                sha256 "${{ env.INTEL_SHA }}"
+              elsif Hardware::CPU.arm?
+                url "https://github.com/lawther/claude_status_line/releases/download/v#{version}/claude_status_line-v#{version}-aarch64-apple-darwin.tar.gz"
+                sha256 "${{ env.ARM_SHA }}"
+              end
+            end
+
+            def install
+              bin.install "claude_status_line"
+            end
+
+            def caveats
+              <<~EOS
+                To register the status line in Claude Code, run:
+                  claude_status_line --install --link
+
+                Using the --link flag ensures Claude Code references the Homebrew-managed
+                binary path directly, allowing 'brew upgrade' to apply updates automatically.
+              EOS
+            end
+
+            test do
+              system "#{bin}/claude_status_line", "--help"
+            end
+          end
+          EOF
+          
+          git add Formula/claude_status_line.rb
+          git commit -m "feat: bump claude_status_line to ${{ env.VERSION }}" || exit 0
+          git push origin main

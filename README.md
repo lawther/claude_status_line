@@ -32,7 +32,20 @@ Note also that the pace indidators only show once either 10% of the quota is use
 
 ## Installation
 
-Download a pre-compiled release for your platform from [here](https://github.com/lawther/claude_status_line/releases), and
+### Via Homebrew (macOS)
+
+You can install `claude_status_line` using Homebrew:
+
+```sh
+brew install lawther/tap/claude_status_line
+claude_status_line --install --link
+```
+
+The `--link` flag configures `~/.claude/settings.json` to reference the Homebrew-installed binary directly. This ensures future updates via `brew upgrade` take effect immediately.
+
+### Manual Installation (Pre-compiled Binary)
+
+Download a pre-compiled release for your platform from [here](https://github.com/lawther/claude_status_line/releases), and:
 
 ```sh
 claude_status_line --install
@@ -51,7 +64,7 @@ cargo build --release
 ./target/release/claude_status_line --install
 ```
 
-`--install` copies the binary to `~/.claude/statusline` and writes the `statusLine` key in `~/.claude/settings.json`. Re-run after building a new version to upgrade in place.
+`--install` copies the binary to `~/.claude/statusline` (or references it directly if `--link` is specified) and writes the `statusLine` key in `~/.claude/settings.json`. Re-run after building or upgrading a new version to apply changes.
 
 ### Options
 

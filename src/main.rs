@@ -488,12 +488,16 @@ fn main() {
         println!("claude_status_line — Claude Code status line renderer");
         println!();
         println!("\x1b[1mUSAGE\x1b[0m");
-        println!("  claude_status_line [--install [-q|--quiet]]");
+        println!("  claude_status_line [--install [-q|--quiet] [--link]]");
         println!("  echo '{{...}}' | claude_status_line");
         println!();
         println!("\x1b[1mOPTIONS\x1b[0m");
         println!("  \x1b[1m--install\x1b[0m         Copy this binary to ~/.claude/statusline and");
         println!("                    configure it in ~/.claude/settings.json");
+        println!(
+            "  \x1b[1m--link\x1b[0m            Configure settings.json directly with the current"
+        );
+        println!("                    binary path instead of copying it");
         println!("  \x1b[1m-q, --quiet\x1b[0m       Suppress output from --install");
         println!("  \x1b[1m-h, --help\x1b[0m        Show this help message");
         println!();
@@ -506,7 +510,8 @@ fn main() {
 
     if std::env::args().any(|a| a == "--install") {
         let quiet = std::env::args().any(|a| a == "--quiet" || a == "-q");
-        if let Err(e) = install::run(quiet) {
+        let link = std::env::args().any(|a| a == "--link");
+        if let Err(e) = install::run(quiet, link) {
             eprintln!("error: {e}");
             std::process::exit(1);
         }
