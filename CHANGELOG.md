@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.0...claude_status_line-v0.3.1) (2026-07-07)
+
+
+### Bug Fixes
+
+* correct homebrew release formula parsing and artefact names ([893c74d](https://github.com/lawther/claude_status_line/commit/893c74d2b9d38184880654ee5fd9ace90f94f399))
+
 ## [0.3.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.3...claude_status_line-v0.3.0) (2026-07-07)
 
 
