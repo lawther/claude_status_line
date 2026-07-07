@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.3...claude_status_line-v0.3.0) (2026-07-07)
+
+
+### Features
+
+* add macOS Homebrew distribution and path-linking behaviour ([238f313](https://github.com/lawther/claude_status_line/commit/238f313c3420b8075698befe642078b458cc80e1))
+
 ## [0.2.3](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.2.2...claude_status_line-v0.2.3) (2026-06-30)
 
 
