@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.1...claude_status_line-v0.3.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* calculate cache hit rate using cache read and cache creation tokens ([a4ef3f0](https://github.com/lawther/claude_status_line/commit/a4ef3f028af46ea2b6fd712d1676e4d6dde68cc0))
+
 ## [0.3.1](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.0...claude_status_line-v0.3.1) (2026-07-07)
 
 
