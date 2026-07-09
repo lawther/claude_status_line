@@ -347,15 +347,24 @@ struct StatusData {
 impl StatusData {
     #[allow(clippy::cast_precision_loss)]
     fn from_json(v: &Value) -> Self {
-        let cache_read = v["context_window"]["current_usage"]["cache_read_input_tokens"].as_u64();
-        let total_input = v["context_window"]["total_input_tokens"].as_u64();
-        let cache_hit_rate = cache_read.zip(total_input).and_then(|(read, total)| {
-            if total > 0 {
-                Some(read as f64 / total as f64 * 100.0)
-            } else {
-                None
-            }
-        });
+        let cache_hit_rate = v["context_window"]["current_usage"]
+            .as_object()
+            .and_then(|usage| {
+                let read = usage
+                    .get("cache_read_input_tokens")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                let creation = usage
+                    .get("cache_creation_input_tokens")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                let denominator = read + creation;
+                if denominator > 0 {
+                    Some(read as f64 / denominator as f64 * 100.0)
+                } else {
+                    None
+                }
+            });
         Self {
             model: v["model"]["display_name"]
                 .as_str()
@@ -737,13 +746,14 @@ mod tests {
     // --- cache_hit_rate ---
 
     #[test]
-    fn cache_hit_rate_computed_from_read_and_total_tokens() {
+    fn cache_hit_rate_computed_from_read_and_creation_tokens() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
             "context_window": {
                 "total_input_tokens": 1000,
                 "current_usage": {
-                    "cache_read_input_tokens": 750
+                    "cache_read_input_tokens": 750,
+                    "cache_creation_input_tokens": 250
                 }
             }
         });
