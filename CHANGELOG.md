@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.2...claude_status_line-v0.4.0) (2026-09-16)
+
+
+### Features
+
+* colour-code cache hit rate by threshold ([41e16fb](https://github.com/lawther/claude_status_line/commit/41e16fb38a3062504e3f3a55609e0486c93b1c3b))
+
+
+### Bug Fixes
+
+* run clippy against test code in lint ([61d2bdb](https://github.com/lawther/claude_status_line/commit/61d2bdb63933f8914afe0f656e2b4adf43121648))
+
 ## [0.3.2](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.1...claude_status_line-v0.3.2) (2026-07-09)
 
 
