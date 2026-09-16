@@ -152,6 +152,22 @@ fn color_by_used(val: u32) -> &'static str {
     }
 }
 
+fn color_by_cache_rate(val: u32) -> &'static str {
+    if val >= 95 {
+        "\x1b[32m"
+    } else if val >= 80 {
+        "\x1b[33m"
+    } else {
+        "\x1b[31m"
+    }
+}
+
+fn fmt_cache_hit_rate(rate: f64, compact_label: bool) -> String {
+    let val = pct_u32(rate);
+    let prefix = if compact_label { "" } else { "cache " };
+    format!("{}{prefix}♻️ {val}%\x1b[0m", color_by_cache_rate(val))
+}
+
 fn mini_bar(percent: u32, width: usize) -> String {
     let filled = ((percent as usize) * width / 100).min(width);
     let mut s = String::with_capacity(width * 3);
@@ -472,12 +488,7 @@ fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String 
 
     if level.show_cache_hit_rate() {
         if let Some(rate) = data.cache_hit_rate {
-            let prefix = if level.compact_cache_label() {
-                ""
-            } else {
-                "cache "
-            };
-            parts.push(format!("\x1b[2m{prefix}♻️ {}%\x1b[0m", pct_u32(rate)));
+            parts.push(fmt_cache_hit_rate(rate, level.compact_cache_label()));
         }
     }
 
