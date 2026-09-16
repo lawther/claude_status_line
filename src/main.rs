@@ -568,8 +568,8 @@ mod tests {
     const ANCHOR_5H: u64 = FIVE_HOUR_SECS;
     const ANCHOR_7D: u64 = SEVEN_DAY_SECS;
 
-    fn elapsed_pct(window_secs: u64, pct: f64) -> u64 {
-        (window_secs as f64 * pct / 100.0).round() as u64
+    fn elapsed_pct(window_secs: u64, pct: u32) -> u64 {
+        window_secs * u64::from(pct) / 100
     }
 
     // --- pct_u32 ---
@@ -801,10 +801,10 @@ mod tests {
                 "total_input_tokens": 1000,
                 "current_usage": {"cache_read_input_tokens": 800},
                 "used_percentage": 20,
-                "context_window_size": 200000
+                "context_window_size": 200_000
             },
             "rate_limits": {
-                "seven_day": {"used_percentage": 10, "resets_at": 9999999999_u64}
+                "seven_day": {"used_percentage": 10, "resets_at": 9_999_999_999_u64}
             },
             "cost": {"total_cost_usd": 1.23}
         });
@@ -865,7 +865,7 @@ mod tests {
                 "total_input_tokens": 1000,
                 "current_usage": {"cache_read_input_tokens": 800},
                 "used_percentage": 20,
-                "context_window_size": 200000
+                "context_window_size": 200_000
             }
         });
         let data = StatusData::from_json(&json);
@@ -881,7 +881,7 @@ mod tests {
     #[test]
     fn pace_suppressed_when_both_time_and_usage_below_threshold() {
         // 8% elapsed, 9% used — both below the 10% threshold
-        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 8.0);
+        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 8);
         assert!(fmt_pace(
             9.0,
             ANCHOR_5H,
@@ -896,7 +896,7 @@ mod tests {
     #[test]
     fn pace_shown_when_usage_meets_threshold_before_time_does() {
         // 8% elapsed, 11% used — usage crosses 10% while time has not
-        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 8.0);
+        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 8);
         assert!(fmt_pace(
             11.0,
             ANCHOR_5H,
@@ -911,7 +911,7 @@ mod tests {
     #[test]
     fn pace_shown_when_time_meets_threshold_before_usage_does() {
         // 11% elapsed, 9% used — time crosses 10% while usage has not
-        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 11.0);
+        let elapsed = elapsed_pct(FIVE_HOUR_SECS, 11);
         assert!(fmt_pace(
             9.0,
             ANCHOR_5H,
@@ -940,7 +940,7 @@ mod tests {
     #[test]
     fn pace_thresholds_apply_independently_to_seven_day_window() {
         // 8% elapsed, 9% used on 7d window — suppressed
-        let elapsed = elapsed_pct(SEVEN_DAY_SECS, 8.0);
+        let elapsed = elapsed_pct(SEVEN_DAY_SECS, 8);
         assert!(fmt_pace(
             9.0,
             ANCHOR_7D,
@@ -951,7 +951,7 @@ mod tests {
         )
         .is_none());
         // 11% elapsed — shown
-        let elapsed = elapsed_pct(SEVEN_DAY_SECS, 11.0);
+        let elapsed = elapsed_pct(SEVEN_DAY_SECS, 11);
         assert!(fmt_pace(
             9.0,
             ANCHOR_7D,
