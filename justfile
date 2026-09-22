@@ -19,6 +19,16 @@ build-release: lint
 install: build-release
     target/release/claude_status_line{{bin_ext}} --install
 
+# Point the statusLine config at this dev build for quick local testing.
+dev-install: build-release
+    target/release/claude_status_line{{bin_ext}} --install --link
+    @echo "{{success}}statusLine now points at target/release/claude_status_line{{bin_ext}}{{reset}}"
+
+# Restore the statusLine config to the Homebrew-installed binary.
+dev-reset:
+    claude_status_line --install --link
+    @echo "{{success}}statusLine restored to the Homebrew-installed binary{{reset}}"
+
 lint:
     cargo fmt
     cargo clippy --all-targets -- -D warnings

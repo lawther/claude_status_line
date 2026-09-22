@@ -13,7 +13,7 @@ const SEVEN_DAY_SECS: u64 = 7 * 24 * 3600;
 const PACE_MIN_PCT: f64 = 10.0;
 
 // Each variant applies one additional compression step on top of the previous.
-// Full is the richest layout; DropCacheHitRate is the most compact possible.
+// Full is the richest layout; DropCacheExpiry is the most compact possible.
 // Bar variants shrink the progress bars in two phases (15→10, then 9→5).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum CompressionLevel {
@@ -39,11 +39,11 @@ enum CompressionLevel {
     CompactCtx,
     DropCtxSize,
     DropModel,
-    DropCacheHitRate,
+    DropCacheExpiry,
 }
 
 impl CompressionLevel {
-    const MAX: Self = Self::DropCacheHitRate;
+    const MAX: Self = Self::DropCacheExpiry;
 
     const ALL: &'static [Self] = &[
         Self::Full,
@@ -68,7 +68,7 @@ impl CompressionLevel {
         Self::CompactCtx,
         Self::DropCtxSize,
         Self::DropModel,
-        Self::DropCacheHitRate,
+        Self::DropCacheExpiry,
     ];
 
     fn bar_width(self) -> usize {
@@ -93,7 +93,7 @@ impl CompressionLevel {
             | Self::CompactCtx
             | Self::DropCtxSize
             | Self::DropModel
-            | Self::DropCacheHitRate => 5,
+            | Self::DropCacheExpiry => 5,
         }
     }
 
@@ -130,8 +130,8 @@ impl CompressionLevel {
     fn show_model(self) -> bool {
         self < Self::DropModel
     }
-    fn show_cache_hit_rate(self) -> bool {
-        self < Self::DropCacheHitRate
+    fn show_cache_expiry(self) -> bool {
+        self < Self::DropCacheExpiry
     }
 }
 
@@ -152,20 +152,9 @@ fn color_by_used(val: u32) -> &'static str {
     }
 }
 
-fn color_by_cache_rate(val: u32) -> &'static str {
-    if val >= 95 {
-        "\x1b[32m"
-    } else if val >= 80 {
-        "\x1b[33m"
-    } else {
-        "\x1b[31m"
-    }
-}
-
-fn fmt_cache_hit_rate(rate: f64, compact_label: bool) -> String {
-    let val = pct_u32(rate);
+fn fmt_cache_expiry(expires_at: u64, compact_label: bool) -> String {
     let prefix = if compact_label { "" } else { "cache " };
-    format!("{}{prefix}♻️ {val}%\x1b[0m", color_by_cache_rate(val))
+    format!("{prefix}♻️ {}", fmt_clock_time(expires_at))
 }
 
 fn mini_bar(percent: u32, width: usize) -> String {
@@ -356,31 +345,13 @@ struct StatusData {
     five_h_resets_at: Option<u64>,
     seven_d_used: Option<f64>,
     seven_d_resets_at: Option<u64>,
-    cache_hit_rate: Option<f64>,
+    cache_expires_at: Option<u64>,
     cost: Option<f64>,
 }
 
 impl StatusData {
     #[allow(clippy::cast_precision_loss)]
     fn from_json(v: &Value) -> Self {
-        let cache_hit_rate = v["context_window"]["current_usage"]
-            .as_object()
-            .and_then(|usage| {
-                let read = usage
-                    .get("cache_read_input_tokens")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(0);
-                let creation = usage
-                    .get("cache_creation_input_tokens")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(0);
-                let denominator = read + creation;
-                if denominator > 0 {
-                    Some(read as f64 / denominator as f64 * 100.0)
-                } else {
-                    None
-                }
-            });
         Self {
             model: v["model"]["display_name"]
                 .as_str()
@@ -393,7 +364,7 @@ impl StatusData {
             five_h_resets_at: v["rate_limits"]["five_hour"]["resets_at"].as_u64(),
             seven_d_used: v["rate_limits"]["seven_day"]["used_percentage"].as_f64(),
             seven_d_resets_at: v["rate_limits"]["seven_day"]["resets_at"].as_u64(),
-            cache_hit_rate,
+            cache_expires_at: v["prompt_cache"]["expires_at"].as_u64(),
             cost: v["cost"]["total_cost_usd"].as_f64(),
         }
     }
@@ -486,9 +457,9 @@ fn build_output(data: &StatusData, level: CompressionLevel, now: u64) -> String 
         ));
     }
 
-    if level.show_cache_hit_rate() {
-        if let Some(rate) = data.cache_hit_rate {
-            parts.push(fmt_cache_hit_rate(rate, level.compact_cache_label()));
+    if level.show_cache_expiry() {
+        if let Some(expires_at) = data.cache_expires_at {
+            parts.push(fmt_cache_expiry(expires_at, level.compact_cache_label()));
         }
     }
 
@@ -680,7 +651,7 @@ mod tests {
         assert!(!l.compact_ctx());
         assert!(l.show_ctx_size());
         assert!(l.show_model());
-        assert!(l.show_cache_hit_rate());
+        assert!(l.show_cache_expiry());
     }
 
     #[test]
@@ -698,7 +669,7 @@ mod tests {
         assert!(l.compact_ctx());
         assert!(!l.show_ctx_size());
         assert!(!l.show_model());
-        assert!(!l.show_cache_hit_rate());
+        assert!(!l.show_cache_expiry());
     }
 
     #[test]
@@ -745,67 +716,46 @@ mod tests {
         let dcs = CompressionLevel::DropCtxSize;
         assert!(!dcs.show_ctx_size());
         assert!(dcs.show_model());
-        assert!(dcs.show_cache_hit_rate());
+        assert!(dcs.show_cache_expiry());
         // DropModel drops model but cache hit rate persists
         let dm = CompressionLevel::DropModel;
         assert!(!dm.show_model());
-        assert!(dm.show_cache_hit_rate());
-        // DropCacheHitRate drops cache hit rate
-        assert!(!CompressionLevel::DropCacheHitRate.show_cache_hit_rate());
+        assert!(dm.show_cache_expiry());
+        // DropCacheExpiry drops cache hit rate
+        assert!(!CompressionLevel::DropCacheExpiry.show_cache_expiry());
     }
 
-    // --- cache_hit_rate ---
+    // --- cache_expires_at ---
 
     #[test]
-    fn cache_hit_rate_computed_from_read_and_creation_tokens() {
+    fn cache_expires_at_read_from_prompt_cache() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
-            "context_window": {
-                "total_input_tokens": 1000,
-                "current_usage": {
-                    "cache_read_input_tokens": 750,
-                    "cache_creation_input_tokens": 250
-                }
-            }
+            "prompt_cache": {"expires_at": 1_700_000_000_u64}
         });
         let data = StatusData::from_json(&json);
-        let rate = data.cache_hit_rate.expect("should have cache hit rate");
-        assert!((rate - 75.0).abs() < 0.01, "expected 75%, got {rate}");
+        assert_eq!(data.cache_expires_at, Some(1_700_000_000));
     }
 
     #[test]
-    fn cache_hit_rate_absent_when_tokens_missing() {
+    fn cache_expires_at_absent_when_prompt_cache_missing() {
         let json = serde_json::json!({"model": {"display_name": "Sonnet 4.6"}});
         let data = StatusData::from_json(&json);
-        assert!(data.cache_hit_rate.is_none());
+        assert!(data.cache_expires_at.is_none());
     }
 
     #[test]
-    fn cache_hit_rate_absent_when_total_tokens_zero() {
+    fn cache_expiry_appears_in_output_between_seven_d_and_cost() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
             "context_window": {
-                "total_input_tokens": 0,
-                "current_usage": {"cache_read_input_tokens": 0}
-            }
-        });
-        let data = StatusData::from_json(&json);
-        assert!(data.cache_hit_rate.is_none());
-    }
-
-    #[test]
-    fn cache_hit_rate_appears_in_output_between_seven_d_and_cost() {
-        let json = serde_json::json!({
-            "model": {"display_name": "Sonnet 4.6"},
-            "context_window": {
-                "total_input_tokens": 1000,
-                "current_usage": {"cache_read_input_tokens": 800},
                 "used_percentage": 20,
                 "context_window_size": 200_000
             },
             "rate_limits": {
                 "seven_day": {"used_percentage": 10, "resets_at": 9_999_999_999_u64}
             },
+            "prompt_cache": {"expires_at": 1_700_000_000_u64},
             "cost": {"total_cost_usd": 1.23}
         });
         let data = StatusData::from_json(&json);
@@ -820,13 +770,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_hit_rate_shows_full_label_before_cache_label_compresses() {
+    fn cache_expiry_shows_full_label_before_cache_label_compresses() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
-            "context_window": {
-                "total_input_tokens": 1000,
-                "current_usage": {"cache_read_input_tokens": 800}
-            }
+            "prompt_cache": {"expires_at": 1_700_000_000_u64}
         });
         let data = StatusData::from_json(&json);
         let output = build_output(&data, CompressionLevel::Bar5, 0);
@@ -837,13 +784,10 @@ mod tests {
     }
 
     #[test]
-    fn cache_hit_rate_drops_label_at_level_13() {
+    fn cache_expiry_drops_label_at_level_13() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
-            "context_window": {
-                "total_input_tokens": 1000,
-                "current_usage": {"cache_read_input_tokens": 800}
-            }
+            "prompt_cache": {"expires_at": 1_700_000_000_u64}
         });
         let data = StatusData::from_json(&json);
         let output = build_output(&data, CompressionLevel::CompactCacheLabel, 0);
@@ -858,15 +802,14 @@ mod tests {
     }
 
     #[test]
-    fn cache_hit_rate_hidden_at_max_compression() {
+    fn cache_expiry_hidden_at_max_compression() {
         let json = serde_json::json!({
             "model": {"display_name": "Sonnet 4.6"},
             "context_window": {
-                "total_input_tokens": 1000,
-                "current_usage": {"cache_read_input_tokens": 800},
                 "used_percentage": 20,
                 "context_window_size": 200_000
-            }
+            },
+            "prompt_cache": {"expires_at": 1_700_000_000_u64}
         });
         let data = StatusData::from_json(&json);
         let output = build_output(&data, CompressionLevel::MAX, 0);
