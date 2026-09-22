@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.4.0...claude_status_line-v0.5.0) (2026-09-22)
+
+
+### Features
+
+* show cache expiry time instead of computed hit rate ([89739a8](https://github.com/lawther/claude_status_line/commit/89739a80b857275d9fcfaec5d41d70522d16fa05))
+
 ## [0.4.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.3.2...claude_status_line-v0.4.0) (2026-09-16)
 
 
