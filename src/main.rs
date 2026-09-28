@@ -1,3 +1,4 @@
+mod alarm;
 mod install;
 
 use std::io::{self, Read};
@@ -233,7 +234,7 @@ fn fmt_metric(label: &str, val: u32, compact: bool, bar_width: usize) -> String 
     }
 }
 
-fn now_secs() -> Option<u64> {
+pub(crate) fn now_secs() -> Option<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -336,6 +337,8 @@ fn fmt_pace(
 }
 
 struct StatusData {
+    session_id: Option<String>,
+    session_name: Option<String>,
     model: String,
     effort: Option<String>,
     ctx_used: Option<f64>,
@@ -352,6 +355,8 @@ impl StatusData {
     #[allow(clippy::cast_precision_loss)]
     fn from_json(v: &Value) -> Self {
         Self {
+            session_id: v["session_id"].as_str().map(str::to_string),
+            session_name: v["session_name"].as_str().map(str::to_string),
             model: v["model"]["display_name"]
                 .as_str()
                 .unwrap_or("")
@@ -498,6 +503,21 @@ fn main() {
         return;
     }
 
+    {
+        let args: Vec<String> = std::env::args().collect();
+        if args.get(1).map(String::as_str) == Some("--watch-cache-alarm") {
+            let (Some(session_id), Some(session_name), Some(claude_pid)) = (
+                args.get(2),
+                args.get(3),
+                args.get(4).and_then(|s| s.parse::<u32>().ok()),
+            ) else {
+                std::process::exit(1);
+            };
+            alarm::run_watcher(session_id, session_name, claude_pid);
+            return;
+        }
+    }
+
     if std::env::args().any(|a| a == "--install") {
         let quiet = std::env::args().any(|a| a == "--quiet" || a == "-q");
         let link = std::env::args().any(|a| a == "--link");
@@ -515,6 +535,13 @@ fn main() {
     let data = StatusData::from_json(&v);
     let now = now_secs().unwrap_or(0);
     let cols = terminal_columns();
+
+    if let (Some(session_id), Some(expires_at)) = (&data.session_id, data.cache_expires_at) {
+        if let Some(claude_pid) = alarm::parent_pid() {
+            let session_name = data.session_name.as_deref().unwrap_or("Claude Code");
+            alarm::arm(session_id, session_name, expires_at, claude_pid);
+        }
+    }
 
     let output = CompressionLevel::ALL
         .iter()

@@ -36,6 +36,15 @@ lint:
 test:
     cargo test
 
+# One-time setup so cache-expiry alarms can actually show a notification.
+# terminal-notifier needs to be launched via `open` once so macOS registers
+# it with Launch Services and Notification Center; otherwise permission
+# requests never appear and notifications are silently dropped.
+setup-cache-alarm:
+    brew install terminal-notifier
+    open "$(brew --prefix terminal-notifier)/terminal-notifier.app"
+    @echo "{{success}}terminal-notifier installed and registered — check System Settings > Notifications if prompts don't appear{{reset}}"
+
 setup-git-hooks:
     git config core.hooksPath .githooks
     chmod +x .githooks/pre-commit
