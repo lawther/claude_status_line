@@ -23,6 +23,7 @@ enum CompressionLevel {
     Bar12,
     Bar11,
     Bar10,
+    CompactCacheLabel,
     EffortCompact,
     ModelCompact,
     Bar9,
@@ -30,7 +31,6 @@ enum CompressionLevel {
     Bar7,
     Bar6,
     Bar5,
-    CompactCacheLabel,
     DropCost,
     CompactSevenDPace,
     CompactFiveHPace,
@@ -52,6 +52,7 @@ impl CompressionLevel {
         Self::Bar12,
         Self::Bar11,
         Self::Bar10,
+        Self::CompactCacheLabel,
         Self::EffortCompact,
         Self::ModelCompact,
         Self::Bar9,
@@ -59,7 +60,6 @@ impl CompressionLevel {
         Self::Bar7,
         Self::Bar6,
         Self::Bar5,
-        Self::CompactCacheLabel,
         Self::DropCost,
         Self::CompactSevenDPace,
         Self::CompactFiveHPace,
@@ -78,13 +78,12 @@ impl CompressionLevel {
             Self::Bar13 => 13,
             Self::Bar12 => 12,
             Self::Bar11 => 11,
-            Self::Bar10 | Self::EffortCompact | Self::ModelCompact => 10,
+            Self::Bar10 | Self::CompactCacheLabel | Self::EffortCompact | Self::ModelCompact => 10,
             Self::Bar9 => 9,
             Self::Bar8 => 8,
             Self::Bar7 => 7,
             Self::Bar6 => 6,
             Self::Bar5
-            | Self::CompactCacheLabel
             | Self::DropCost
             | Self::CompactSevenDPace
             | Self::CompactFiveHPace
@@ -685,17 +684,24 @@ mod tests {
 
     #[test]
     fn compression_level_transitions_apply_one_step_at_a_time() {
-        // Bar5 has 5-wide bars, full cache label, cost still shown
-        let bar5 = CompressionLevel::Bar5;
-        assert_eq!(bar5.bar_width(), 5);
-        assert!(!bar5.compact_cache_label());
-        assert!(bar5.show_cost());
-        assert!(!bar5.compact_seven_d_pace());
-        // CompactCacheLabel compacts cache label only
+        // Bar10 has 10-wide bars, full cache label, cost still shown
+        let bar10 = CompressionLevel::Bar10;
+        assert_eq!(bar10.bar_width(), 10);
+        assert!(!bar10.compact_cache_label());
+        assert!(bar10.show_cost());
+        assert!(!bar10.compact_seven_d_pace());
+        // CompactCacheLabel compacts cache label only; bars still 10-wide
         let ccl = CompressionLevel::CompactCacheLabel;
+        assert_eq!(ccl.bar_width(), 10);
         assert!(ccl.compact_cache_label());
         assert!(ccl.show_cost());
         assert!(!ccl.compact_seven_d_pace());
+        // Bar5 has 5-wide bars; cache label stays compact, cost still shown
+        let bar5 = CompressionLevel::Bar5;
+        assert_eq!(bar5.bar_width(), 5);
+        assert!(bar5.compact_cache_label());
+        assert!(bar5.show_cost());
+        assert!(!bar5.compact_seven_d_pace());
         // DropCost drops cost; pace still full
         let dc = CompressionLevel::DropCost;
         assert!(!dc.show_cost());
@@ -776,10 +782,10 @@ mod tests {
             "prompt_cache": {"expires_at": 1_700_000_000_u64}
         });
         let data = StatusData::from_json(&json);
-        let output = build_output(&data, CompressionLevel::Bar5, 0);
+        let output = build_output(&data, CompressionLevel::Bar10, 0);
         assert!(
             output.contains("cache \u{267B}"),
-            "expected 'cache ♻' at Bar5: {output:?}"
+            "expected 'cache ♻' at Bar10: {output:?}"
         );
     }
 
