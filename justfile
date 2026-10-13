@@ -1,3 +1,13 @@
+# BEGIN SHARED RECIPES (DEFAULT) sha256:18670817947290ab
+# Generated from agent_rules/snippets/default.just. Do not edit inside this block:
+#      edit snippets/default.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# List available recipes
+default:
+    @just --list
+
+# END SHARED RECIPES (DEFAULT)
+
 set windows-shell := ["bash", "-c"]
 
 bin_ext := if os() == "windows" { ".exe" } else { "" }
