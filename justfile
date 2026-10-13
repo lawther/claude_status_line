@@ -45,6 +45,7 @@ dev-reset:
 lint:
     cargo fmt
     cargo clippy --all-targets -- -D warnings
+    just lint-pep723
 
 test:
     cargo test
