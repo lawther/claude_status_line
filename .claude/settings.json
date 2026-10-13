@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-override-flags.sh",
+            "type": "command",
+            "statusMessage": "Checking for override flags..."
+          },
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check_bead_model.py",
+            "type": "command",
+            "statusMessage": "Checking bead model label..."
+          },
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate_dep_type.py",
+            "type": "command",
+            "statusMessage": "Checking dependency type..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check_diary_prose.py",
+            "type": "command",
+            "statusMessage": "Checking for diary prose..."
+          },
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check_no_em_dash.py",
+            "type": "command",
+            "statusMessage": "Checking for em dashes..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "command": "bd prime --memories-only --hook-json",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
