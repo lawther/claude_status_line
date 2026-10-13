@@ -2,6 +2,9 @@ set windows-shell := ["bash", "-c"]
 
 bin_ext := if os() == "windows" { ".exe" } else { "" }
 
+# The shared recipes (synced from agent_rules) call this rather than spelling a runner.
+uv_run := "uv run"
+
 bold    := `tput bold 2>/dev/null || true`
 green   := `tput setaf 2 2>/dev/null || true`
 red     := `tput setaf 1 2>/dev/null || true`
@@ -71,3 +74,17 @@ precommit:
         exit $status
     fi
     echo "{{success}}All pre-commit checks passed{{reset}}"
+
+# BEGIN SHARED RECIPES (AI_READINESS) sha256:45e10abdfa181601
+# Generated from agent_rules/snippets/ai_readiness.just. Do not edit inside this block:
+#      edit snippets/ai_readiness.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# Analyse project source files to evaluate AI agent readiness
+analyse-ai-readiness *args:
+    @{{uv_run}} shared_scripts/analyse_ai_readiness.py {{args}}
+
+# Check source file size thresholds for AI agent readiness (fails if threshold breached)
+check-ai-readiness *args:
+    @{{uv_run}} shared_scripts/analyse_ai_readiness.py --fail-on {{args}}
+
+# END SHARED RECIPES (AI_READINESS)
