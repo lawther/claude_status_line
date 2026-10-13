@@ -1,3 +1,4 @@
 /target
 *.pdb
 *.psd
+__pycache__/
