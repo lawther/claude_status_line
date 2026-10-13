@@ -138,3 +138,18 @@ setup-linear-history:
     @echo "Linear history preferences set for this clone"
 
 # END SHARED RECIPES (LINEAR_HISTORY)
+
+# BEGIN SHARED RECIPES (PEP723) sha256:0eedb944b6ad5f5a
+# Generated from agent_rules/snippets/pep723.just. Do not edit inside this block:
+#      edit snippets/pep723.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# Type-check the synced PEP 723 scripts in shared_scripts/ in an ephemeral env built from each
+# script's own inline metadata. ty resolves imports against the project's .venv and has no
+# notion of PEP 723 isolation, so checking them via the project's own `ty check` fails or
+# silently passes depending on whether the .venv happens to carry the same packages. Keep
+# shared_scripts/ out of the project's own `ty check` invocation, and call this recipe from
+# the project's lint recipe. Drop both once astral-sh/ty#691 lands.
+lint-pep723:
+    @uvx --with-requirements shared_scripts/analyse_ai_readiness.py ty check shared_scripts/analyse_ai_readiness.py
+
+# END SHARED RECIPES (PEP723)
