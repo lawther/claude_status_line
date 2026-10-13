@@ -34,6 +34,9 @@ jobs:
         with:
           tool: just
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+
       # Pre-commit logic is defined in the Justfile `precommit` target — do not add steps here.
       - name: Validate project
         run: just precommit
