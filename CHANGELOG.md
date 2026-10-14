@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.5.0...claude_status_line-v0.6.0) (2026-10-13)
+
+
+### Features
+
+* notify when the prompt cache is about to expire ([cffe0be](https://github.com/lawther/claude_status_line/commit/cffe0beb9ae1b11962da98b88f3142035e623ad3))
+
 ## [0.5.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.4.0...claude_status_line-v0.5.0) (2026-09-22)
 
 
