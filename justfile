@@ -72,14 +72,14 @@ precommit:
     tmpfile=$(mktemp)
     staged_list=$(mktemp)
     trap 'rm -f "$tmpfile" "$staged_list"' EXIT
+    status=0
     git diff --cached --name-only -z --diff-filter=d > "$staged_list"
     (
         set -e
         just lint
         xargs -r -0 git add < "$staged_list"
         just test
-    ) > "$tmpfile" 2>&1
-    status=$?
+    ) > "$tmpfile" 2>&1 || status=$?
     if [ $status -ne 0 ]; then
         cat "$tmpfile"
         exit $status
