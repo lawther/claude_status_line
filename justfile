@@ -154,3 +154,19 @@ lint-pep723:
     @uvx --with-requirements shared_scripts/analyse_ai_readiness.py ty check shared_scripts/analyse_ai_readiness.py
 
 # END SHARED RECIPES (PEP723)
+
+# BEGIN SHARED RECIPES (DEPENDABOT) sha256:3678816b1cdec7d5
+# Generated from agent_rules/snippets/dependabot.just. Do not edit inside this block:
+#      edit snippets/dependabot.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# Land this repo's open Dependabot PRs on main, one tested commit per PR. Never pushes.
+apply-dependabot *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -x ../agent_rules/apply_dependabot.py ]]; then
+        echo "error: ../agent_rules/apply_dependabot.py not found -- clone the agent_rules repo as a sibling" >&2
+        exit 2
+    fi
+    ../agent_rules/run_shared_script.py --check-failed-exit 3 -- ../agent_rules/apply_dependabot.py . {{args}}
+
+# END SHARED RECIPES (DEPENDABOT)
