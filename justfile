@@ -97,7 +97,7 @@ setup-git-hooks:
     git config pull.rebase true
     @echo "{{success}}Git hooks configured{{reset}}"
 
-precommit:
+precommit: precommit-fleet
     #!/usr/bin/env bash
     set -euo pipefail
     tmpfile=$(mktemp)
