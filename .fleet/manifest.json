@@ -104,7 +104,7 @@
           "begin": "# BEGIN FLEET RECIPES (CORE)",
           "end": "# END FLEET RECIPES (CORE)",
           "path": "justfile",
-          "sha256": "3f7527693de9eeae6a70ecbf5182ce33761384cfd0eed509e93cfafe2bf06c06"
+          "sha256": "7c4a0a8690791f98c02050f922bf69e7599f439b7bcf8ae15285529499840194"
         }
       ],
       "files": [
@@ -125,7 +125,7 @@
         }
       ],
       "registrations": [],
-      "source": "agent_rules@131e5d2"
+      "source": "agent_rules@7869efd-dirty"
     },
     "git_hooks": {
       "blocks": [
