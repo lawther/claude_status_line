@@ -29,7 +29,7 @@ set windows-shell := ["bash", "-c"]
 
 bin_ext := if os() == "windows" { ".exe" } else { "" }
 
-# The shared recipes (synced from agent_rules) call this rather than spelling a runner.
+# The shared recipes (synced from fleet) call this rather than spelling a runner.
 uv_run := "uv run"
 
 bold    := `tput bold 2>/dev/null || true`
