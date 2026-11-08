@@ -110,8 +110,8 @@ check-ai-readiness *args:
 # END FLEET RECIPES (SCRIPTS)
 
 # BEGIN FLEET RECIPES (GIT_HOOKS)
-# Generated from agent_rules payload/git_hooks/recipes.just. Do not edit inside this block:
-#      edit it there, then run `just sync` in agent_rules.
+# Generated from fleet payload/git_hooks/recipes.just. Do not edit inside this block:
+#      edit it there, then run `just sync` in fleet.
 
 # Sets this repo's own local git config to prefer linear history, overriding whatever
 # a clone's global config says. `pull.rebase` and `merge.ff` live in .git/config, which
