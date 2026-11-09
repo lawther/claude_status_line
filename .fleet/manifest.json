@@ -101,6 +101,12 @@
     "core": {
       "blocks": [
         {
+          "begin": "# BEGIN FLEET LINE ENDINGS",
+          "end": "# END FLEET LINE ENDINGS",
+          "path": ".gitattributes",
+          "sha256": "05e5ec373bc691fc2bbf16cd8103fd5293f2f668041cd8819d9644b50fb48366"
+        },
+        {
           "begin": "# BEGIN FLEET RECIPES (CORE)",
           "end": "# END FLEET RECIPES (CORE)",
           "path": "justfile",
@@ -125,7 +131,7 @@
         }
       ],
       "registrations": [],
-      "source": "fleet@66bccf7"
+      "source": "fleet@c3f3e12"
     },
     "git_hooks": {
       "blocks": [
