@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.5.0...claude_status_line-v0.6.0) (2026-11-11)
+
+
+### Features
+
+* notify when the prompt cache is about to expire ([cffe0be](https://github.com/lawther/claude_status_line/commit/cffe0beb9ae1b11962da98b88f3142035e623ad3))
+
+
+### Bug Fixes
+
+* **core:** pin fleet-managed files to LF in .gitattributes ([425348a](https://github.com/lawther/claude_status_line/commit/425348ab8a4e808fac210ccc020b988fa0411025))
+* **justfile:** print captured output when precommit fails ([6a8caee](https://github.com/lawther/claude_status_line/commit/6a8caee27c3f33e76f286c6d12c13a0aac86175c))
+
 ## [0.5.0](https://github.com/lawther/claude_status_line/compare/claude_status_line-v0.4.0...claude_status_line-v0.5.0) (2026-09-22)
 
 
